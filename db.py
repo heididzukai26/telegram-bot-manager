@@ -88,7 +88,7 @@ class DatabaseManager:
             added_by: User ID who is adding this group
             
         Returns:
-            WorkerGroup: The created worker group object
+            dict: Dictionary with worker group information
         """
         session = self.Session()
         try:
@@ -100,8 +100,19 @@ class DatabaseManager:
             )
             session.add(worker_group)
             session.commit()
+            
+            # Get data before closing session
+            result = {
+                'id': worker_group.id,
+                'group_id': worker_group.group_id,
+                'group_type': worker_group.group_type,
+                'amount': worker_group.amount,
+                'added_by': worker_group.added_by,
+                'added_at': worker_group.added_at
+            }
+            
             logger.info(f"Worker group added: group_id={group_id}, type={group_type}")
-            return worker_group
+            return result
         except exc.SQLAlchemyError as e:
             session.rollback()
             logger.error(f"Error adding worker group: {e}")
@@ -143,7 +154,7 @@ class DatabaseManager:
             added_by: User ID who is adding this group
             
         Returns:
-            CustomerGroup: The created customer group object
+            dict: Dictionary with customer group information
         """
         session = self.Session()
         try:
@@ -154,7 +165,14 @@ class DatabaseManager:
             
             if existing:
                 logger.warning(f"Customer group already exists: group_id={group_id}")
-                return existing
+                result = {
+                    'id': existing.id,
+                    'group_id': existing.group_id,
+                    'group_name': existing.group_name,
+                    'added_by': existing.added_by,
+                    'added_at': existing.added_at
+                }
+                return result
             
             customer_group = CustomerGroup(
                 group_id=group_id,
@@ -163,8 +181,18 @@ class DatabaseManager:
             )
             session.add(customer_group)
             session.commit()
+            
+            # Get data before closing session
+            result = {
+                'id': customer_group.id,
+                'group_id': customer_group.group_id,
+                'group_name': customer_group.group_name,
+                'added_by': customer_group.added_by,
+                'added_at': customer_group.added_at
+            }
+            
             logger.info(f"Customer group added: group_id={group_id}, name={group_name}")
-            return customer_group
+            return result
         except exc.SQLAlchemyError as e:
             session.rollback()
             logger.error(f"Error adding customer group: {e}")
