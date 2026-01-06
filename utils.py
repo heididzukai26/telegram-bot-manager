@@ -27,7 +27,7 @@ ORDER_TYPES = {
 }
 
 # Regex patterns
-EMAIL_PATTERN = r"[a-zA-Z0-9_. +-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+"
+EMAIL_PATTERN = r"[a-zA-Z0-9_. +-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9.-]+"
 
 # ==================== ADMIN MANAGEMENT ====================
 

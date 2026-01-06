@@ -13,7 +13,8 @@ Features:
 
 import os
 import logging
-from typing import Optional, Dict, Any
+import time
+from typing import Optional, Dict, Any, Tuple
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
@@ -72,7 +73,7 @@ def create_order_type_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 
-def validate_order_input(order_text: str) -> tuple[bool, str, Optional[Dict[str, Any]]]:
+def validate_order_input(order_text: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
     """
     Validate order input and extract order details.
     
@@ -128,11 +129,15 @@ def format_order_summary(order_data: Dict[str, Any]) -> str:
     Returns:
         Formatted string with order details
     """
+    cp_amount = order_data.get('cp_amount', 0)
+    order_type = order_data.get('order_type', 'unknown')
+    status = order_data.get('status', 'unknown')
+    
     return (
         f"📋 **Order Summary**\n\n"
-        f"💎 CP Amount: {order_data['cp_amount']}\n"
-        f"📦 Order Type: {order_data['order_type'].replace('_', ' ').title()}\n"
-        f"📌 Status: {order_data['status'].title()}\n"
+        f"💎 CP Amount: {cp_amount}\n"
+        f"📦 Order Type: {order_type.replace('_', ' ').title()}\n"
+        f"📌 Status: {status.title()}\n"
     )
 
 
@@ -324,8 +329,8 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
             )
             return
         
-        # Generate order ID
-        order_id = f"{user.id}_{len(active_orders) + 1}"
+        # Generate order ID using timestamp for uniqueness
+        order_id = f"{user.id}_{int(time.time() * 1000)}"
         order_data["user_id"] = user.id
         order_data["username"] = user.username or user.first_name
         
