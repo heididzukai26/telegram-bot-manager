@@ -22,14 +22,16 @@ logger = logging.getLogger(__name__)
 # ==================== CONSTANTS ====================
 
 # Price list format patterns
+# Note: All patterns capture negative prices except the dash-separator format,
+# where the dash serves as a delimiter, not a negative sign indicator.
 PRICE_LINE_PATTERNS = [
-    # Format: "Item: $10.50" or "Item: 10.50" (also handles negative: -10.50)
+    # Format: "Item: $10.50" or "Item: -10.50" (supports negative with colon separator)
     r'^(.+?):\s*\$?(-?\d+(?:\.\d{1,2})?)\s*$',
-    # Format: "Item - $10.50" or "Item - 10.50" (note: dash is separator, not negative sign)
+    # Format: "Item - $10.50" (dash is separator; use "Item: -10.50" for negative prices)
     r'^(.+?)\s+-\s+\$?(\d+(?:\.\d{1,2})?)\s*$',
-    # Format: "Item | $10.50" or "Item | 10.50"
+    # Format: "Item | $10.50" or "Item | -10.50" (supports negative with pipe separator)
     r'^(.+?)\s*\|\s*\$?(-?\d+(?:\.\d{1,2})?)\s*$',
-    # Format: "Item $10.50" or "Item 10.50" (with explicit price at end)
+    # Format: "Item $10.50" or "Item -10.50" (supports negative with space separator)
     r'^(.+?)\s+\$?(-?\d+(?:\.\d{1,2})?)\s*$',
 ]
 
@@ -373,12 +375,39 @@ def validate_price_data(prices: Dict[str, Decimal],
             errors.append(error)
             continue
         
-        # Check for SQL injection patterns (basic check)
-        suspicious_patterns = [';', '--', '/*', '*/', 'DROP', 'DELETE', 'INSERT', 'UPDATE']
-        if any(pattern in item_name.upper() for pattern in suspicious_patterns):
-            error = f"⚠️ Suspicious pattern in item name: '{item_name}'"
-            logger.warning(error)
-            errors.append(error)
+        # Basic SQL injection pattern detection
+        # Note: This is a basic check. The apply_price_list_to_db function should
+        # use parameterized queries for actual SQL injection prevention.
+        # This check prevents obviously malicious patterns but may have false positives.
+        suspicious_patterns = [
+            (';', 'contains semicolon (SQL statement terminator)'),
+            ('--', 'contains SQL comment marker'),
+            ('/*', 'contains SQL comment start'),
+            ('*/', 'contains SQL comment end'),
+        ]
+        # Check for SQL keywords only when surrounded by word boundaries or special chars
+        sql_keywords = ['DROP TABLE', 'DELETE FROM', 'INSERT INTO', 'UPDATE SET', 'UNION SELECT']
+        item_upper = item_name.upper()
+        
+        found_suspicious = False
+        for pattern, desc in suspicious_patterns:
+            if pattern in item_name:
+                error = f"⚠️ Item name {desc}: '{item_name}'"
+                logger.warning(error)
+                errors.append(error)
+                found_suspicious = True
+                break
+        
+        if not found_suspicious:
+            for keyword in sql_keywords:
+                if keyword in item_upper:
+                    error = f"⚠️ Item name contains SQL keyword '{keyword}': '{item_name}'"
+                    logger.warning(error)
+                    errors.append(error)
+                    found_suspicious = True
+                    break
+        
+        if found_suspicious:
             continue
         
         # Validate price type
@@ -468,23 +497,25 @@ def apply_price_list_to_db(prices: Dict[str, Decimal],
             logger.debug(f"Processing: '{item_name}' = ${price}")
             
             # Perform database operation based on type
+            # Note: Keep prices as Decimal or use database-specific decimal types
+            # to avoid precision errors in financial calculations
             if operation == "update":
                 # Example: db_connection.execute(
                 #     "UPDATE prices SET price = ? WHERE item_name = ?",
-                #     (float(price), item_name)
+                #     (price, item_name)  # Pass Decimal directly or convert to DB decimal type
                 # )
                 pass
             elif operation == "insert":
                 # Example: db_connection.execute(
                 #     "INSERT INTO prices (item_name, price) VALUES (?, ?)",
-                #     (item_name, float(price))
+                #     (item_name, price)  # Use parameterized queries to prevent SQL injection
                 # )
                 pass
             elif operation == "upsert":
                 # Example: db_connection.execute(
                 #     "INSERT INTO prices (item_name, price) VALUES (?, ?) "
                 #     "ON CONFLICT(item_name) DO UPDATE SET price = ?",
-                #     (item_name, float(price), float(price))
+                #     (item_name, price, price)
                 # )
                 pass
             
@@ -494,8 +525,17 @@ def apply_price_list_to_db(prices: Dict[str, Decimal],
         logger.info(f"Committing transaction: {items_processed} items processed")
         # db_connection.commit()
         
+        # Create grammatically correct past tense
+        operation_past_tense = {
+            "update": "updated",
+            "insert": "inserted",
+            "upsert": "upserted",
+            "add": "added",
+            "delete": "deleted"
+        }.get(operation, f"{operation}d")
+        
         success_msg = (
-            f"✅ Successfully {operation}d {items_processed} price(s) in database.\n"
+            f"✅ Successfully {operation_past_tense} {items_processed} price(s) in database.\n"
             f"Total value: ${sum(prices.values()):.2f}"
         )
         logger.info(success_msg)
