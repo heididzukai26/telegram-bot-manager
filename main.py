@@ -1,10 +1,13 @@
 """
-Enhanced main.py - Telegram Bot Manager
-This file implements the following capabilities:
-1. Robust Command Handling: Improved parsing and validation of commands.
-2. Better User Feedback: Enhanced messages to users during bot interaction.
-3. Optimized Order Processing: Streamlined logic for processing bot commands.
-4. Admin commands: /addsource and /addgroup for managing worker and customer groups.
+Telegram Bot Manager - Main Application
+
+This module implements the Telegram bot with command handlers for managing worker and customer groups.
+
+Key Features:
+1. /addsource - Add worker source groups to database with type and optional amount
+2. /addgroup - Register Telegram groups as customer groups
+3. Admin permission checking for all sensitive commands
+4. Robust error handling and user feedback
 """
 
 import os
