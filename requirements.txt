@@ -1,0 +1,8 @@
+# Telegram bot framework
+python-telegram-bot>=20.0
+
+# Database ORM
+sqlalchemy>=2.0.0
+
+# Environment variables
+python-dotenv>=1.0.0
