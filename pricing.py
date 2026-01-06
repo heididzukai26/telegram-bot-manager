@@ -42,6 +42,28 @@ MIN_PRICE_VALUE = Decimal('0.00')
 # Confirmation timeout in seconds
 CONFIRMATION_TIMEOUT = 300  # 5 minutes
 
+# SQL injection detection patterns (used in validate_price_data)
+SQL_SUSPICIOUS_PATTERNS = [
+    (';', 'contains semicolon (SQL statement terminator)'),
+    ('/*', 'contains SQL comment start'),
+    ('*/', 'contains SQL comment end'),
+]
+
+SQL_KEYWORDS = ['DROP TABLE', 'DELETE FROM', 'INSERT INTO', 'UPDATE SET', 'UNION SELECT']
+
+# Database operation past tense forms (used in apply_price_list_to_db)
+OPERATION_PAST_TENSE = {
+    "update": "updated",
+    "insert": "inserted",
+    "upsert": "upserted",
+    "add": "added",
+    "delete": "deleted",
+    "remove": "removed",
+    "modify": "modified",
+    "create": "created",
+    "apply": "applied"
+}
+
 
 # ==================== PRICE LIST PARSING ====================
 
@@ -390,11 +412,7 @@ def validate_price_data(prices: Dict[str, Decimal],
         #   c) Allow overrides with manual review
         #
         # The primary defense is ALWAYS parameterized queries in the database layer.
-        suspicious_patterns = [
-            (';', 'contains semicolon (SQL statement terminator)'),
-            ('/*', 'contains SQL comment start'),
-            ('*/', 'contains SQL comment end'),
-        ]
+        
         # Check for SQL comment pattern '--' (with some context to reduce false positives)
         if item_name.startswith('--') or ' --' in item_name or '\t--' in item_name:
             error = f"⚠️ Item name contains SQL comment pattern: '{item_name}'"
@@ -403,11 +421,10 @@ def validate_price_data(prices: Dict[str, Decimal],
             continue
         
         # Check for SQL keywords only when they appear as complete phrases
-        sql_keywords = ['DROP TABLE', 'DELETE FROM', 'INSERT INTO', 'UPDATE SET', 'UNION SELECT']
         item_upper = item_name.upper()
         
         found_suspicious = False
-        for pattern, desc in suspicious_patterns:
+        for pattern, desc in SQL_SUSPICIOUS_PATTERNS:
             if pattern in item_name:
                 error = f"⚠️ Item name {desc}: '{item_name}'"
                 logger.warning(error)
@@ -416,7 +433,7 @@ def validate_price_data(prices: Dict[str, Decimal],
                 break
         
         if not found_suspicious:
-            for keyword in sql_keywords:
+            for keyword in SQL_KEYWORDS:
                 if keyword in item_upper:
                     error = f"⚠️ Item name contains SQL keyword '{keyword}': '{item_name}'"
                     logger.warning(error)
@@ -542,19 +559,8 @@ def apply_price_list_to_db(prices: Dict[str, Decimal],
         logger.info(f"Committing transaction: {items_processed} items processed")
         # db_connection.commit()
         
-        # Create grammatically correct past tense
-        # Common operations are mapped; unknown operations use the base form with warning
-        operation_past_tense = {
-            "update": "updated",
-            "insert": "inserted",
-            "upsert": "upserted",
-            "add": "added",
-            "delete": "deleted",
-            "remove": "removed",
-            "modify": "modified",
-            "create": "created",
-            "apply": "applied"
-        }.get(operation.lower(), None)
+        # Create grammatically correct past tense using module-level constant
+        operation_past_tense = OPERATION_PAST_TENSE.get(operation.lower(), None)
         
         if operation_past_tense is None:
             logger.warning(f"Unknown operation type '{operation}', using base form")
