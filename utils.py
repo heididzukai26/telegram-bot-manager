@@ -27,7 +27,7 @@ ORDER_TYPES = {
 }
 
 # Regex patterns
-EMAIL_PATTERN = r"[a-zA-Z0-9_. +-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+"
+EMAIL_PATTERN = r"[a-zA-Z0-9_. +-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9.-]+"
 
 # ==================== ADMIN MANAGEMENT ====================
 
@@ -89,13 +89,21 @@ def extract_cp_and_type(order_text: str) -> tuple:
     # Normalize and clean up the text
     order_text = order_text.lower().strip()
 
-    # Step 1: Look for the CP amount using 'unsafe' or general numbers
+    # Step 1: Look for the CP amount - try multiple patterns
+    cp_amount = 0
+    
+    # Pattern 1: number followed by order type (e.g., "100 unsafe", "50 safe_fast")
     cp_match = re.search(r'(\d+)\s*(unsafe|safe_fast|safe_slow|fund)', order_text)
-    cp_amount = int(cp_match.group(1)) if cp_match else 0
+    if cp_match:
+        cp_amount = int(cp_match.group(1))
+    else:
+        # Pattern 2: number followed by "cp" or standalone number
+        cp_match = re.search(r'(\d+)\s*(?:cp|سی\s*پی)?', order_text)
+        if cp_match:
+            cp_amount = int(cp_match.group(1))
 
-    # Step 2: Look for the order type explicitly
-    type_match = re.search(r'\b(unsafe|safe_fast|safe_slow|fund)\b', order_text)
-    order_type = type_match.group(1) if type_match else None
+    # Step 2: Look for the order type using extract_order_type for consistency
+    order_type = extract_order_type(order_text)
 
     # Error handling if no CP or order type detected
     error_message = ""
@@ -190,5 +198,3 @@ def extract_order_type(text: str) -> Optional[str]:
         return "safe_fast"
 
     return None
-
-"""
