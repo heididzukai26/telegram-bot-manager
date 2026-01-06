@@ -568,7 +568,7 @@ class TestErrorHandling:
         # Try to initialize database in a path that cannot be created
         invalid_path = "/root/forbidden/path/test.db"
         
-        with pytest.raises(Exception):
+        with pytest.raises((PermissionError, OSError)):
             await db.init_db(invalid_path)
     
     @pytest.mark.asyncio
@@ -599,17 +599,19 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_operations_on_nonexistent_database(self):
         """Test that operations on nonexistent database handle errors gracefully."""
-        nonexistent_db = "/tmp/nonexistent_db_12345.db"
-        
-        # These should not crash, but return None/False/empty list
-        user_result = await db.create_user(12345, "test", db_path=nonexistent_db)
-        assert user_result is False
-        
-        order = await db.get_order(1, nonexistent_db)
-        assert order is None
-        
-        orders = await db.get_user_orders(12345, db_path=nonexistent_db)
-        assert orders == []
+        # Use a temporary path that doesn't exist (cross-platform)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            nonexistent_db = str(Path(temp_dir) / "nonexistent_subdir" / "nonexistent_db.db")
+            
+            # These should not crash, but return None/False/empty list
+            user_result = await db.create_user(12345, "test", db_path=nonexistent_db)
+            assert user_result is False
+            
+            order = await db.get_order(1, nonexistent_db)
+            assert order is None
+            
+            orders = await db.get_user_orders(12345, db_path=nonexistent_db)
+            assert orders == []
 
 
 if __name__ == "__main__":
