@@ -103,10 +103,9 @@ def extract_amount(text: str) -> int:
     # Normalize text
     normalized = text.lower().strip()
     
-    # Remove commas from numbers (e.g., "1,000,000" -> "1000000")
-    normalized = re.sub(r'(\d),(\d)', r'\1\2', normalized)
-    # Apply again to handle multiple commas
-    normalized = re.sub(r'(\d),(\d)', r'\1\2', normalized)
+    # Remove all commas from numbers (e.g., "1,000,000" -> "1000000")
+    # Use lookhead to ensure we only remove commas between digits
+    normalized = re.sub(r'(\d),(?=\d)', r'\1', normalized)
     
     # Pattern 1: Number followed by CP keyword (e.g., "5000 cp", "1000cp")
     # Supports: cp, سی پی, سی‌پی, c.p, c p
@@ -132,6 +131,8 @@ def extract_amount(text: str) -> int:
                 return amount
     
     # Fallback: Look for any number in reasonable range if it's the only significant number
+    # Pattern looks for numbers with 3-7 digits (100 to 9,999,999)
+    # This covers typical CP amounts without matching unrelated numbers like years or IDs
     all_numbers = re.findall(r'\b(\d{3,7})\b', normalized)
     if all_numbers:
         # Convert to integers and filter by valid range
