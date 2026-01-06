@@ -229,11 +229,17 @@ class TestRoutingLogic(unittest.TestCase):
         source = get_source_for_type("unsafe", -100)
         self.assertIsNone(source)
     
+    def test_get_source_no_amount(self):
+        """Test routing without specifying amount (None)."""
+        add_source("unsafe", 12345)
+        source = get_source_for_type("unsafe")
+        self.assertEqual(source, 12345)
+    
     def test_get_source_zero_amount(self):
-        """Test routing with zero amount (should be allowed as default)."""
+        """Test routing with zero amount (should be rejected)."""
         add_source("unsafe", 12345)
         source = get_source_for_type("unsafe", 0)
-        self.assertEqual(source, 12345)
+        self.assertIsNone(source)
     
     def test_get_source_multiple_sources(self):
         """Test routing when multiple sources exist (round-robin)."""

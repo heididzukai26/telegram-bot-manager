@@ -254,7 +254,7 @@ def get_sources(group_type: str) -> List[int]:
 
 # ==================== ROUTING FUNCTIONS ====================
 
-def get_source_for_type(group_type: str, amount: int = 0) -> Optional[int]:
+def get_source_for_type(group_type: str, amount: Optional[int] = None) -> Optional[int]:
     """
     Get a source group ID for routing an order of a specific type.
     
@@ -267,7 +267,7 @@ def get_source_for_type(group_type: str, amount: int = 0) -> Optional[int]:
     
     Args:
         group_type: Type of order (unsafe, fund, safe_fast, safe_slow)
-        amount: Order amount (for validation and logging purposes)
+        amount: Order amount (optional, for validation and logging purposes)
         
     Returns:
         Source group ID if available, None if no sources available
@@ -287,8 +287,8 @@ def get_source_for_type(group_type: str, amount: int = 0) -> Optional[int]:
         logger.error(f"❌ Routing failed: invalid group_type '{group_type}'")
         return None
     
-    # Validate amount if provided
-    if amount != 0 and not validate_amount(amount):
+    # Validate amount if provided (None means amount was not specified)
+    if amount is not None and not validate_amount(amount):
         logger.error(f"❌ Routing failed: invalid amount {amount}")
         return None
     
