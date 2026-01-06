@@ -403,6 +403,10 @@ def validate_price_data(prices: Dict[str, Decimal],
         # function MUST use parameterized queries for actual SQL injection prevention.
         # This validation serves as a defense-in-depth measure to catch obvious attacks.
         # 
+        # Example of proper parameterized query (CORRECT way to prevent SQL injection):
+        #   cursor.execute("UPDATE prices SET price = ? WHERE item_name = ?", (price, item_name))
+        #   # NOT: cursor.execute(f"UPDATE prices SET price = {price} WHERE item_name = '{item_name}'")
+        #
         # Known limitations and tradeoffs:
         # - May flag legitimate names like "Coffee; Dark Roast" or "Item -- Special Edition"
         # - This is intentionally conservative for security
@@ -555,6 +559,9 @@ def apply_price_list_to_db(prices: Dict[str, Decimal],
             
             items_processed += 1
         
+        # Calculate total once for efficiency
+        total_value = sum(prices.values())
+        
         # Commit transaction (pseudo-code)
         logger.info(f"Committing transaction: {items_processed} items processed")
         # db_connection.commit()
@@ -568,7 +575,7 @@ def apply_price_list_to_db(prices: Dict[str, Decimal],
         
         success_msg = (
             f"✅ Successfully {operation_past_tense} {items_processed} price(s) in database.\n"
-            f"Total value: ${sum(prices.values()):.2f}"
+            f"Total value: ${total_value:.2f}"
         )
         logger.info(success_msg)
         return True, success_msg
