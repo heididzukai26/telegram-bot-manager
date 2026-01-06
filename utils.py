@@ -103,8 +103,10 @@ def extract_amount(text: str) -> int:
     # Normalize text
     normalized = text.lower().strip()
     
-    # Remove commas from numbers (e.g., "1,000" -> "1000")
-    normalized = re.sub(r'(\d+),(\d+)', r'\1\2', normalized)
+    # Remove commas from numbers (e.g., "1,000,000" -> "1000000")
+    normalized = re.sub(r'(\d),(\d)', r'\1\2', normalized)
+    # Apply again to handle multiple commas
+    normalized = re.sub(r'(\d),(\d)', r'\1\2', normalized)
     
     # Pattern 1: Number followed by CP keyword (e.g., "5000 cp", "1000cp")
     # Supports: cp, سی پی, سی‌پی, c.p, c p
@@ -131,11 +133,17 @@ def extract_amount(text: str) -> int:
     
     # Fallback: Look for any number in reasonable range if it's the only significant number
     all_numbers = re.findall(r'\b(\d{3,7})\b', normalized)
-    valid_numbers = [int(n) for n in all_numbers if 100 <= int(n) <= 1000000]
-    
-    # If there's exactly one valid number, it's likely the CP amount
-    if len(valid_numbers) == 1:
-        return valid_numbers[0]
+    if all_numbers:
+        # Convert to integers and filter by valid range
+        valid_numbers = []
+        for n in all_numbers:
+            num = int(n)
+            if 100 <= num <= 1000000:
+                valid_numbers.append(num)
+        
+        # If there's exactly one valid number, it's likely the CP amount
+        if len(valid_numbers) == 1:
+            return valid_numbers[0]
     
     return 0
 
@@ -161,7 +169,7 @@ def extract_cp_and_type(order_text: str) -> Tuple[int, Optional[str], str]:
         >>> extract_cp_and_type("Need 5000 CP unsafe order")
         (5000, 'unsafe', '')
         >>> extract_cp_and_type("Order without details")
-        (0, None, '❌ مقدار CP در متن سفارش مشخص نشده است.\\n❌ نوع سفارش شناسایی نشد...')
+        (0, None, '❌ مقدار CP در متن سفارش مشخص نشده است.\\n❌ نوع سفارش شناسایی نشد. لطفاً یکی از `unsafe`, `fund`, `safe_fast`, یا `safe_slow` را مشخص کنید.')
     """
     if not order_text or not isinstance(order_text, str):
         return 0, None, "❌ متن سفارش نامعتبر است."
