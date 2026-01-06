@@ -190,5 +190,3 @@ def extract_order_type(text: str) -> Optional[str]:
         return "safe_fast"
 
     return None
-
-"""
