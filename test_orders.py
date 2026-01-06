@@ -17,6 +17,20 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from orders import Order, WorkerReply, OrderManager
 
 
+# Test constants to reduce duplication
+TEST_ORDER_VALID = """
+test@example.com
+Need 100 unsafe
+Valid order text
+"""
+
+TEST_ORDER_FOR_PROCESSING = """
+test@example.com
+Need 100 unsafe
+Test order
+"""
+
+
 class TestOrderEdgeCases:
     """Test edge cases in order handling."""
     
@@ -116,15 +130,9 @@ class TestOrderEdgeCases:
     @pytest.mark.asyncio
     async def test_handle_order_valid(self, manager):
         """Test handling valid order."""
-        order_text = """
-        test@example.com
-        Need 100 unsafe
-        Valid order text
-        """
-        
         success, message, order = await manager.handle_order(
             "order_005",
-            order_text,
+            TEST_ORDER_VALID,
             validate=False
         )
         
@@ -545,12 +553,7 @@ class TestOrderProcessing:
     async def test_process_worker_reply_success(self, manager):
         """Test processing valid worker reply."""
         # Create order
-        order_text = """
-        test@example.com
-        Need 100 unsafe
-        Test order
-        """
-        await manager.handle_order("process_order_001", order_text, validate=False)
+        await manager.handle_order("process_order_001", TEST_ORDER_FOR_PROCESSING, validate=False)
         
         order = manager.orders["process_order_001"]
         order.reply_message_id = 12345
@@ -574,12 +577,7 @@ class TestOrderProcessing:
     async def test_process_worker_reply_invalid(self, manager):
         """Test processing invalid worker reply."""
         # Create order
-        order_text = """
-        test@example.com
-        Need 100 unsafe
-        Test order
-        """
-        await manager.handle_order("process_order_002", order_text, validate=False)
+        await manager.handle_order("process_order_002", TEST_ORDER_FOR_PROCESSING, validate=False)
         
         order = manager.orders["process_order_002"]
         order.reply_message_id = 12345
@@ -602,12 +600,7 @@ class TestOrderProcessing:
     async def test_get_order_status(self, manager):
         """Test getting order status."""
         # Create order
-        order_text = """
-        test@example.com
-        Need 100 unsafe
-        Test order
-        """
-        await manager.handle_order("status_order_001", order_text, validate=False)
+        await manager.handle_order("status_order_001", TEST_ORDER_FOR_PROCESSING, validate=False)
         
         status = manager.get_order_status("status_order_001")
         

@@ -11,7 +11,6 @@ This module handles:
 
 import asyncio
 import logging
-import time
 from typing import Dict, List, Optional, Tuple, Set
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -239,7 +238,7 @@ class OrderManager:
         Args:
             order_id: The order ID
             reply: Worker reply containing photos
-            timeout: Maximum time to wait for photos (seconds)
+            timeout: Maximum time to wait for entire operation (seconds)
             retry_delay: Delay between retries (seconds)
             max_retries: Maximum number of retries
         
@@ -257,56 +256,63 @@ class OrderManager:
         # Acquire lock to prevent race conditions
         lock = self._get_photo_lock(order_id)
         
-        async with lock:
-            logger.debug(f"🔒 Lock acquired for order {order_id}")
-            
-            # Mark message as being processed
-            self.processing_replies.add(reply.message_id)
-            
-            try:
-                photos_collected = []
-                retry_count = 0
-                
-                # Retry logic for network delays
-                while retry_count < max_retries:
-                    if reply.photos:
-                        logger.info(f"📸 Found {len(reply.photos)} photos in reply")
-                        photos_collected.extend(reply.photos)
-                        break
+        try:
+            # Wrap the entire operation in a timeout
+            async with asyncio.timeout(timeout):
+                async with lock:
+                    logger.debug(f"🔒 Lock acquired for order {order_id}")
                     
-                    # Wait and retry if no photos yet
-                    if retry_count < max_retries - 1:
-                        logger.debug(f"⏳ No photos found, waiting {retry_delay}s before retry {retry_count + 1}/{max_retries}")
-                        await asyncio.sleep(retry_delay)
-                        retry_count += 1
-                    else:
-                        logger.warning(f"⚠️ No photos found after {max_retries} retries")
-                        break
-                
-                # Add photos to order
-                if photos_collected:
-                    # Deduplicate photos
-                    existing_photos_set = set(order.photos)
-                    new_photos = [p for p in photos_collected if p not in existing_photos_set]
+                    # Mark message as being processed
+                    self.processing_replies.add(reply.message_id)
                     
-                    if new_photos:
-                        order.photos.extend(new_photos)
-                        logger.info(f"✅ Added {len(new_photos)} new photos to order {order_id} (total: {len(order.photos)})")
-                    else:
-                        logger.debug(f"ℹ️ All photos already exist in order {order_id}")
-                    
-                    return True, new_photos
-                else:
-                    logger.warning(f"⚠️ No photos collected for order {order_id}")
-                    return False, []
-                    
-            except Exception as e:
-                logger.error(f"❌ Error collecting photos for order {order_id}: {e}", exc_info=True)
-                return False, []
-            finally:
-                # Remove from processing set
-                self.processing_replies.discard(reply.message_id)
-                logger.debug(f"🔓 Lock released for order {order_id}")
+                    try:
+                        photos_collected = []
+                        retry_count = 0
+                        
+                        # Retry logic for network delays
+                        while retry_count < max_retries:
+                            if reply.photos:
+                                logger.info(f"📸 Found {len(reply.photos)} photos in reply")
+                                photos_collected.extend(reply.photos)
+                                break
+                            
+                            # Wait and retry if no photos yet
+                            if retry_count < max_retries - 1:
+                                logger.debug(f"⏳ No photos found, waiting {retry_delay}s before retry {retry_count + 1}/{max_retries}")
+                                await asyncio.sleep(retry_delay)
+                                retry_count += 1
+                            else:
+                                logger.warning(f"⚠️ No photos found after {max_retries} retries")
+                                break
+                        
+                        # Add photos to order
+                        if photos_collected:
+                            # Deduplicate photos
+                            existing_photos_set = set(order.photos)
+                            new_photos = [p for p in photos_collected if p not in existing_photos_set]
+                            
+                            if new_photos:
+                                order.photos.extend(new_photos)
+                                logger.info(f"✅ Added {len(new_photos)} new photos to order {order_id} (total: {len(order.photos)})")
+                            else:
+                                logger.debug(f"ℹ️ All photos already exist in order {order_id}")
+                            
+                            return True, new_photos
+                        else:
+                            logger.warning(f"⚠️ No photos collected for order {order_id}")
+                            return False, []
+                            
+                    except Exception as e:
+                        logger.error(f"❌ Error collecting photos for order {order_id}: {e}", exc_info=True)
+                        return False, []
+                    finally:
+                        # Remove from processing set
+                        self.processing_replies.discard(reply.message_id)
+                        logger.debug(f"🔓 Lock released for order {order_id}")
+        except asyncio.TimeoutError:
+            logger.error(f"⏱️ Timeout ({timeout}s) collecting photos for order {order_id}")
+            self.processing_replies.discard(reply.message_id)
+            return False, []
     
     async def deliver_photos(
         self,
@@ -470,6 +476,8 @@ class OrderManager:
         logger.debug(f"📊 Order {order_id} status: {status_info}")
         return status_info
 
-
-# Global order manager instance
+# Default global order manager instance for convenience
+# For better testability and modularity, consider creating instances explicitly:
+#   manager = OrderManager()
+# or use dependency injection in production code.
 order_manager = OrderManager()
