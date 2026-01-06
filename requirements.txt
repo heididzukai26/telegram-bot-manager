@@ -1,0 +1,7 @@
+# Core dependencies
+# Add telegram bot library here when integrating with actual bot
+# e.g., python-telegram-bot>=20.0
+
+# Testing dependencies
+pytest>=9.0.0
+pytest-asyncio>=1.3.0
