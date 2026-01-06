@@ -23,14 +23,14 @@ logger = logging.getLogger(__name__)
 
 # Price list format patterns
 PRICE_LINE_PATTERNS = [
-    # Format: "Item: $10.50" or "Item: 10.50"
-    r'^(.+?):\s*\$?(\d+(?:\.\d{1,2})?)\s*$',
-    # Format: "Item - $10.50" or "Item - 10.50"
-    r'^(.+?)\s*-\s*\$?(\d+(?:\.\d{1,2})?)\s*$',
+    # Format: "Item: $10.50" or "Item: 10.50" (also handles negative: -10.50)
+    r'^(.+?):\s*\$?(-?\d+(?:\.\d{1,2})?)\s*$',
+    # Format: "Item - $10.50" or "Item - 10.50" (note: dash is separator, not negative sign)
+    r'^(.+?)\s+-\s+\$?(\d+(?:\.\d{1,2})?)\s*$',
     # Format: "Item | $10.50" or "Item | 10.50"
-    r'^(.+?)\s*\|\s*\$?(\d+(?:\.\d{1,2})?)\s*$',
+    r'^(.+?)\s*\|\s*\$?(-?\d+(?:\.\d{1,2})?)\s*$',
     # Format: "Item $10.50" or "Item 10.50" (with explicit price at end)
-    r'^(.+?)\s+\$?(\d+(?:\.\d{1,2})?)\s*$',
+    r'^(.+?)\s+\$?(-?\d+(?:\.\d{1,2})?)\s*$',
 ]
 
 # Maximum price value for validation
