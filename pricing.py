@@ -131,14 +131,14 @@ def parse_price_list(price_text: str) -> Tuple[Dict[str, Decimal], List[str]]:
                     
                     # Check price bounds
                     if price < MIN_PRICE_VALUE:
-                        error_msg = f"Line {line_number}: Negative price for '{item_name}': {price}"
+                        error_msg = f"Line {line_number}: Invalid price for '{item_name}': {price} (must be >= {MIN_PRICE_VALUE})"
                         logger.warning(error_msg)
                         errors.append(f"❌ {error_msg}")
                         parsed = True
                         break
                     
                     if price > MAX_PRICE_VALUE:
-                        error_msg = f"Line {line_number}: Price too large for '{item_name}': {price}"
+                        error_msg = f"Line {line_number}: Price too large for '{item_name}': {price} (max: {MAX_PRICE_VALUE})"
                         logger.warning(error_msg)
                         errors.append(f"❌ {error_msg}")
                         parsed = True
@@ -375,17 +375,34 @@ def validate_price_data(prices: Dict[str, Decimal],
             errors.append(error)
             continue
         
-        # Basic SQL injection pattern detection
-        # Note: This is a basic check. The apply_price_list_to_db function should
-        # use parameterized queries for actual SQL injection prevention.
-        # This check prevents obviously malicious patterns but may have false positives.
+        # Basic SQL injection pattern detection (Defense-in-Depth)
+        # ========================================================
+        # IMPORTANT: This is a BASIC sanity check only. The apply_price_list_to_db 
+        # function MUST use parameterized queries for actual SQL injection prevention.
+        # This validation serves as a defense-in-depth measure to catch obvious attacks.
+        # 
+        # Known limitations and tradeoffs:
+        # - May flag legitimate names like "Coffee; Dark Roast" or "Item -- Special Edition"
+        # - This is intentionally conservative for security
+        # - In production, you may want to:
+        #   a) Make this check optional/configurable based on your threat model
+        #   b) Disable for trusted data sources
+        #   c) Allow overrides with manual review
+        #
+        # The primary defense is ALWAYS parameterized queries in the database layer.
         suspicious_patterns = [
             (';', 'contains semicolon (SQL statement terminator)'),
-            ('--', 'contains SQL comment marker'),
             ('/*', 'contains SQL comment start'),
             ('*/', 'contains SQL comment end'),
         ]
-        # Check for SQL keywords only when surrounded by word boundaries or special chars
+        # Check for SQL comment pattern '--' (with some context to reduce false positives)
+        if item_name.startswith('--') or ' --' in item_name or '\t--' in item_name:
+            error = f"⚠️ Item name contains SQL comment pattern: '{item_name}'"
+            logger.warning(error)
+            errors.append(error)
+            continue
+        
+        # Check for SQL keywords only when they appear as complete phrases
         sql_keywords = ['DROP TABLE', 'DELETE FROM', 'INSERT INTO', 'UPDATE SET', 'UNION SELECT']
         item_upper = item_name.upper()
         
@@ -526,13 +543,22 @@ def apply_price_list_to_db(prices: Dict[str, Decimal],
         # db_connection.commit()
         
         # Create grammatically correct past tense
+        # Common operations are mapped; unknown operations use the base form with warning
         operation_past_tense = {
             "update": "updated",
             "insert": "inserted",
             "upsert": "upserted",
             "add": "added",
-            "delete": "deleted"
-        }.get(operation, f"{operation}d")
+            "delete": "deleted",
+            "remove": "removed",
+            "modify": "modified",
+            "create": "created",
+            "apply": "applied"
+        }.get(operation.lower(), None)
+        
+        if operation_past_tense is None:
+            logger.warning(f"Unknown operation type '{operation}', using base form")
+            operation_past_tense = operation.lower()
         
         success_msg = (
             f"✅ Successfully {operation_past_tense} {items_processed} price(s) in database.\n"
