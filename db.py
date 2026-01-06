@@ -128,14 +128,26 @@ class DatabaseManager:
             group_type: Optional filter by group type
             
         Returns:
-            List of WorkerGroup objects
+            List of dictionaries with worker group information
         """
         session = self.Session()
         try:
             query = session.query(WorkerGroup)
             if group_type:
                 query = query.filter(WorkerGroup.group_type == group_type)
-            return query.all()
+            
+            # Convert to dictionaries before closing session
+            results = []
+            for wg in query.all():
+                results.append({
+                    'id': wg.id,
+                    'group_id': wg.group_id,
+                    'group_type': wg.group_type,
+                    'amount': wg.amount,
+                    'added_by': wg.added_by,
+                    'added_at': wg.added_at
+                })
+            return results
         except exc.SQLAlchemyError as e:
             logger.error(f"Error fetching worker groups: {e}")
             raise
@@ -205,11 +217,21 @@ class DatabaseManager:
         Get all customer groups.
         
         Returns:
-            List of CustomerGroup objects
+            List of dictionaries with customer group information
         """
         session = self.Session()
         try:
-            return session.query(CustomerGroup).all()
+            # Convert to dictionaries before closing session
+            results = []
+            for cg in session.query(CustomerGroup).all():
+                results.append({
+                    'id': cg.id,
+                    'group_id': cg.group_id,
+                    'group_name': cg.group_name,
+                    'added_by': cg.added_by,
+                    'added_at': cg.added_at
+                })
+            return results
         except exc.SQLAlchemyError as e:
             logger.error(f"Error fetching customer groups: {e}")
             raise
